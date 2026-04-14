@@ -1,0 +1,33 @@
+{
+    "name": "Gemini & Copilot Workspace",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu", 
+    
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "20" 
+        },
+        "ghcr.io/devcontainers/features/python:1": {
+            "version": "3.11"
+        }
+    },
+"containerEnv": {
+        // Fixes the "spawn xdg-open" error
+        "NO_BROWSER": "true"
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                // Automatically points VS Code to your venv
+                "python.defaultInterpreterPath": "${ some_repo_path }/.venv/bin/python"
+            },
+            "extensions": [
+                "ms-python.python",
+                "GitHub.copilot",
+                "google.gemini"
+            ]
+        }
+    },
+
+    "postCreateCommand": "bash .devcontainer/setup.sh"
+}
