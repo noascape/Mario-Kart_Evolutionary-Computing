@@ -150,12 +150,20 @@ activemq-data/
 # Environments
 .env
 .envrc
-.venv
+.venv/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Project Specific
+rom/*.sfc
+rom/*.smc
+Gameplay/*.mp4
+checkpoints/
+results/
+neat-checkpoint-*
 
 # Spyder project settings
 .spyderproject
