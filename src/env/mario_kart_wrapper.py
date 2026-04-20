@@ -113,7 +113,7 @@ class MarioKartWrapper(gym.Wrapper):
         # Checkpoint Reward (The main goal)
         if progress > self.max_progress:
             # Huge boost for reaching a new checkpoint
-            custom_reward += 50.0 * float(progress - self.max_progress)
+            custom_reward += 100.0 * float(progress - self.max_progress)
             self.max_progress = progress
             self.steps_without_progress = 0
         else:
@@ -121,22 +121,20 @@ class MarioKartWrapper(gym.Wrapper):
             # Time penalty (Encourages speed)
             custom_reward -= 0.1
 
-        # Speed Reward (Encourages moving, but scaled down)
-        # Only give speed reward if we are not "stuck"
+        # Speed Reward (Reduced to prevent speed-farming)
         if curr_speed > 0:
-            custom_reward += (curr_speed / 1000.0)
+            custom_reward += (curr_speed / 2000.0)
 
-        # Crash/Wall Penalty
-        # If speed is near zero but gas (action[0]) is held, or status is high
+        # Crash/Wall Penalty (More aggressive)
         if action[0] > 0 and curr_speed < 10 and self.steps_without_progress > 30:
-            custom_reward -= 0.5
+            custom_reward -= 1.0 # Doubled from 0.5
             
-        if curr_status >= 0x40: # Typical 'hit wall' or 'spinning' status
-            custom_reward -= 1.0
+        if curr_status >= 0x40: 
+            custom_reward -= 2.0 # Doubled from 1.0
 
         # 3. Termination Logic
-        # Kill if no progress for 4 seconds
-        if self.steps_without_progress > 240:
+        # Kill if no progress for 3 seconds (SMK is fast, 3s is plenty to find progress if moving)
+        if self.steps_without_progress > 180:
             terminated = True
         
         # Update info

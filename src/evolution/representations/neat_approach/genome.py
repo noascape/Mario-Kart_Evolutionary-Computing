@@ -44,12 +44,8 @@ class NEATGenome(BaseGenome):
         # B, Y, SELECT, START, UP, DOWN, LEFT, RIGHT, A, X, L, R
         actions = np.zeros(12, dtype=np.int8)
         
-        # Gasoline (B button)
-        if outputs[0] > 0.4:
-            actions[0] = 1
-            
-        # Other buttons
-        for i in range(1, 12):
+        # Use a consistent threshold for all buttons to avoid bias
+        for i in range(12):
             if outputs[i] > 0.5:
                 actions[i] = 1
         return actions
