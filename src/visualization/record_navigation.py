@@ -76,25 +76,34 @@ def record_video():
     
     # 5. Select '50cc'
     print("Step 5: Selecting 50cc (B)...")
-    multi_press(['B'])
-    wait(8) # Extra wait for character screen load
-    
-    # 6. Character Selection (Try B then A)
-    print("Step 6: Selecting Character Mario (B then A)...")
-    multi_press(['B'])
-    wait(2)
-    multi_press(['A'])
-    wait(8) # Extra wait for cup screen load
-    
-    # 7. Cup Selection (Try B then A)
-    print("Step 7: Selecting Mushroom Cup (B then A)...")
-    multi_press(['B'])
-    wait(2)
-    multi_press(['A'])
-    
-    # 8. Final Wait for Track Flyover and Race Start (30s)
-    print("Step 8: Final capture (Lakitu countdown)...")
-    wait(30)
+    multi_press(['B'], times=2)
+    wait(1) # Reduced from 2
+
+    # 6. Character Selection (Mario is default)
+    print("Step 6: Selecting Character Mario (B)...")
+    multi_press(['B'], times=2)
+    wait(1) # Reduced from 2
+
+    # 7. Cup Selection (Mushroom Cup is default)
+    print("Step 7: Selecting Mushroom Cup (B)...")
+    multi_press(['B'], times=2)
+    wait(0.5) # Reduced from 1
+
+    # 8. Final Wait for Flyover and Countdown
+    print("Step 8: Waiting for race start...")
+    # We were at 00:04:29 with 2s wait in Step 8 + 5s total in 5,6,7.
+    # Total was 7s. We need to be ~4.5s earlier.
+    # New total is 1 + 1 + 0.5 = 2.5s.
+    wait(0) 
+
+    # NEW: Save emulator state (Gzipped) at the exact start
+    import gzip
+    state_data = env.unwrapped.em.get_state()
+    state_path = os.path.join(custom_path, 'SuperMarioKart-Snes-v0/start_race.state')
+    with gzip.open(state_path, 'wb') as f:
+        f.write(state_data)
+    print(f"Emulator state (gzipped) saved as {state_path}")
+
     
     out.release()
     env.close()
