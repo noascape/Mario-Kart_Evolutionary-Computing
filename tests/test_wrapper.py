@@ -1,18 +1,17 @@
 import pytest
 import numpy as np
-import gymnasium as gym
-from typing import Dict, Any
+import os
+import stable_retro as retro
 from src.env.mario_kart_wrapper import MarioKartWrapper
-
-try:
-    import stable_retro as retro
-except ImportError:
-    import retro
 
 def test_wrapper_ram_extraction():
     """Test that the wrapper correctly extracts RAM variables."""
+    # Register custom integration
+    custom_path = os.path.abspath('src/env/custom_integration')
+    retro.data.add_custom_integration(custom_path)
+    
     try:
-        inner_env = retro.make(game='SuperMarioKart-Snes-v0', state=retro.State.NONE)
+        inner_env = retro.make(game='SuperMarioKart-Snes-v0', state=retro.State.NONE, inttype=retro.data.Integrations.CONTRIB_ONLY)
         env = MarioKartWrapper(inner_env)
         
         env.reset()
@@ -33,4 +32,4 @@ def test_wrapper_ram_extraction():
         pytest.fail(f"Wrapper test failed: {e}")
 
 if __name__ == "__main__":
-    test_wrapper_ram_extraction()
+    pytest.main([__file__])

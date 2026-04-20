@@ -13,8 +13,12 @@ except ImportError:
 
 def test_retro_load():
     """Test that SuperMarioKart-Snes-v0 can be loaded and reset."""
+    # Register custom integration
+    custom_path = os.path.abspath('src/env/custom_integration')
+    retro.data.add_custom_integration(custom_path)
+    
     try:
-        env = retro.make(game='SuperMarioKart-Snes-v0', state=retro.State.NONE)
+        env = retro.make(game='SuperMarioKart-Snes-v0', state=retro.State.NONE, inttype=retro.data.Integrations.CONTRIB_ONLY)
         obs, info = env.reset()
         
         assert isinstance(obs, np.ndarray), "Observation should be a numpy array"

@@ -10,7 +10,16 @@ except ImportError:
 
 def record_video():
     print("Initializing environment...")
-    inner_env = retro.make(game='SuperMarioKart-Snes-v0', state=retro.State.NONE, render_mode='rgb_array')
+    # Register custom integration
+    custom_path = os.path.abspath('src/env/custom_integration')
+    retro.data.add_custom_integration(custom_path)
+    
+    inner_env = retro.make(
+        game='SuperMarioKart-Snes-v0', 
+        state=retro.State.NONE, 
+        render_mode='rgb_array', 
+        inttype=retro.data.Integrations.CONTRIB_ONLY
+    )
     env = MarioKartWrapper(inner_env)
     
     print("Resetting environment...")

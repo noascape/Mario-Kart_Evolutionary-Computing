@@ -1,5 +1,4 @@
-# System Dependencies (installed via apt-get):
-# xvfb python3-opengl libsdl2-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
+# Python dependencies for Super Mario Kart NEAT Evolution
 
 stable-retro
 neat-python
@@ -7,3 +6,4 @@ pytest
 opencv-python
 numpy
 gymnasium
+pyglet

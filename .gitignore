@@ -158,8 +158,7 @@ env.bak/
 venv.bak/
 
 # Project Specific
-rom/*.sfc
-rom/*.smc
+rom/
 Gameplay/*.mp4
 checkpoints/
 results/
