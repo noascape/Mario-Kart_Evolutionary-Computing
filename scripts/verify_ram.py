@@ -20,9 +20,10 @@ retro.data.add_custom_integration(custom_path)
 def verify():
     print("Initializing environment for RAM verification...")
     try:
+        state_path = os.path.join(custom_path, 'SuperMarioKart-Snes-v0/start_race.state')
         inner_env = retro.make(
             game='SuperMarioKart-Snes-v0', 
-            state=retro.State.DEFAULT, 
+            state=state_path, 
             inttype=retro.data.Integrations.CONTRIB_ONLY, 
             render_mode='rgb_array'
         )

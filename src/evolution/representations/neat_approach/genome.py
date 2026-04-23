@@ -14,8 +14,7 @@ class NEATGenome(BaseGenome):
 
     def get_action(self, observation):
         """
-        Maps RAM-based observation to NEAT outputs.
-        Expects observation to contain 'ram_state'.
+        Maps RAM-based observation to NEAT outputs with mutual exclusion for directions.
         """
         ram = observation.get('ram_state', {})
         # Use 7 RAM inputs: X, Y, Angle, Status, Checkpoint, Lap, Speed
@@ -36,18 +35,35 @@ class NEATGenome(BaseGenome):
         inputs[3] /= 255.0
         inputs[4] /= 30.0
         inputs[5] /= 200.0
-        inputs[6] /= 2000.0 # SMK speed is typically 0-1500 approx
+        inputs[6] /= 2000.0
 
         outputs = self.net.activate(inputs)
         
         # Map outputs to binary button states
-        # B, Y, SELECT, START, UP, DOWN, LEFT, RIGHT, A, X, L, R
+        # Index Mapping for Retro:
+        # 0:B, 1:Y, 2:SELECT, 3:START, 4:UP, 5:DOWN, 6:LEFT, 7:RIGHT, 8:A, 9:X, 10:L, 11:R
         actions = np.zeros(12, dtype=np.int8)
         
-        # Use a consistent threshold for all buttons to avoid bias
-        for i in range(12):
-            if outputs[i] > 0.5:
+        threshold = 0.5
+        
+        # Helper for basic buttons (DISABLED 2:SELECT and 3:START)
+        for i in [0, 1, 8, 9, 10, 11]:
+            if outputs[i] > threshold:
                 actions[i] = 1
+        
+        # Mutual Exclusion for D-Pad
+        # UP (4) vs DOWN (5)
+        if outputs[4] > outputs[5] and outputs[4] > threshold:
+            actions[4] = 1
+        elif outputs[5] > outputs[4] and outputs[5] > threshold:
+            actions[5] = 1
+            
+        # LEFT (6) vs RIGHT (7)
+        if outputs[6] > outputs[7] and outputs[6] > threshold:
+            actions[6] = 1
+        elif outputs[7] > outputs[6] and outputs[7] > threshold:
+            actions[7] = 1
+            
         return actions
 
     def mutate(self):

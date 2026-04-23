@@ -1,113 +1,102 @@
 import os
 import cv2
 import numpy as np
-from src.env.mario_kart_wrapper import MarioKartWrapper
+import gzip
+import sys
+
+# Add project root to path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.insert(0, project_root)
 
 try:
     import stable_retro as retro
 except ImportError:
     import retro
 
-def record_video():
-    print("Initializing environment...")
-    # Register custom integration
-    custom_path = os.path.abspath('src/env/custom_integration')
+def record_navigation():
+    print("Initializing environment for navigation recording...")
+    custom_path = os.path.join(project_root, 'src/env/custom_integration')
     retro.data.add_custom_integration(custom_path)
     
+    # We use State.NONE to start from cold boot
     inner_env = retro.make(
         game='SuperMarioKart-Snes-v0', 
-        state=retro.State.NONE, 
+        state=None, 
         render_mode='rgb_array', 
         inttype=retro.data.Integrations.CONTRIB_ONLY
     )
-    env = MarioKartWrapper(inner_env)
     
-    print("Resetting environment...")
-    env.reset()
+    obs, info = inner_env.reset()
     
-    output_path = 'Gameplay/race_start.mp4'
+    # Video setup
+    video_path = 'navigation_verify.mp4'
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_path, fourcc, 60.0, (256, 224))
+    # SMK resolution is usually 256x224, but let's get it from the obs
+    height, width, layers = obs.shape
+    video = cv2.VideoWriter(video_path, fourcc, 60.0, (width, height))
     
     buttons = ['B', 'Y', 'SELECT', 'START', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'A', 'X', 'L', 'R']
     
-    def multi_press(names, times=3, duration=20, wait_between=60):
-        """Presses a set of buttons multiple times with delays."""
-        for i in range(times):
-            print(f"  Action: Pressing {names} (Attempt {i+1})...")
-            action = np.zeros(len(buttons), dtype=np.int8)
-            for name in names:
-                action[buttons.index(name)] = 1
+    def step_and_record(action, count=1):
+        nonlocal obs
+        for _ in range(count):
+            obs, reward, terminated, truncated, info = inner_env.step(action)
+            frame_bgr = cv2.cvtColor(obs, cv2.COLOR_RGB2BGR)
+            video.write(frame_bgr)
+        return obs, info
+
+    def press(button, duration=20, wait=300):
+        print(f"Pressing {button}...")
+        action = np.zeros(len(buttons), dtype=np.int8)
+        action[buttons.index(button)] = 1
+        step_and_record(action, duration)
+        step_and_record(np.zeros(len(buttons), dtype=np.int8), wait)
+
+    print("Step 1: Waiting for Intro...")
+    step_and_record(np.zeros(len(buttons), dtype=np.int8), 600)
+    
+    print("Step 2: Spamming START and A to navigate menus...")
+    # Spam for 2000 steps to get through all selections
+    for i in range(2000):
+        action = np.zeros(len(buttons), dtype=np.int8)
+        # Alternate START and A
+        if i % 40 < 10: action[3] = 1 # START
+        if 20 <= i % 40 < 30: action[8] = 1 # A
+        step_and_record(action, 1)
+
+    print("Step 3: Waiting for Race Start (Watching X/Y)...")
+    race_detected = False
+    for i in range(5000):
+        # Hold Gas (B)
+        action = np.zeros(len(buttons), dtype=np.int8)
+        action[0] = 1 # B
+        
+        obs, info = step_and_record(action, 1)
+        
+        ram = inner_env.get_ram()
+        x = ram[0x0088] + (ram[0x0089] << 8)
+        y = ram[0x008C] + (ram[0x008D] << 8)
+        lap = ram[0x10C1]
+        
+        # Real Mario Circuit 1 Start: X is usually ~1024, Y is ~1824
+        # We look for a jump into large coordinate space
+        if x > 500 and y > 500 and lap == 128:
+            print(f"RACE DETECTED! Step={i}, X={x}, Y={y}, Lap={lap}")
+            race_detected = True
+            state_data = inner_env.em.get_state()
+            state_path = os.path.join(custom_path, 'SuperMarioKart-Snes-v0/start_race.state')
+            with gzip.open(state_path, 'wb') as f:
+                f.write(state_data)
+            print(f"State saved to {state_path}")
+            step_and_record(action, 180) # Record 3s of race
+            break
             
-            for _ in range(duration):
-                obs, _, _, _, _ = env.step(action)
-                out.write(cv2.cvtColor(obs, cv2.COLOR_RGB2BGR))
-                
-            # Release
-            action = np.zeros(len(buttons), dtype=np.int8)
-            for _ in range(wait_between):
-                obs, _, _, _, _ = env.step(action)
-                out.write(cv2.cvtColor(obs, cv2.COLOR_RGB2BGR))
+        if i % 250 == 0:
+            print(f"  Wait Frame {i}, X: {x}, Y: {y}, Lap: {lap}")
 
-    def wait(seconds):
-        print(f"  Waiting for {seconds} seconds...")
-        for _ in range(int(60 * seconds)):
-            obs, _, _, _, _ = env.step(np.zeros(len(buttons), dtype=np.int8))
-            out.write(cv2.cvtColor(obs, cv2.COLOR_RGB2BGR))
-
-    # 1. Initial Wait (10s)
-    print("Step 1: Waiting for title screen...")
-    wait(10)
-    
-    # 2. Start screen -> Main Menu
-    print("Step 2: Title -> Menu (START + B)...")
-    multi_press(['START', 'B'])
-    wait(5)
-    
-    # 3. Select 'Mario Kart GP'
-    print("Step 3: Selecting Mario Kart GP (B)...")
-    multi_press(['B'])
-    wait(5)
-    
-    # 4. Select '1P Game'
-    print("Step 4: Selecting 1P Game (B)...")
-    multi_press(['B'])
-    wait(5)
-    
-    # 5. Select '50cc'
-    print("Step 5: Selecting 50cc (B)...")
-    multi_press(['B'], times=2)
-    wait(1) # Reduced from 2
-
-    # 6. Character Selection (Mario is default)
-    print("Step 6: Selecting Character Mario (B)...")
-    multi_press(['B'], times=2)
-    wait(1) # Reduced from 2
-
-    # 7. Cup Selection (Mushroom Cup is default)
-    print("Step 7: Selecting Mushroom Cup (B)...")
-    multi_press(['B'], times=2)
-    wait(0.5) # Reduced from 1
-
-    # 8. Final Wait for Flyover and Countdown
-    print("Step 8: Waiting for race start...")
-    # We were at 00:04:29 with 2s wait in Step 8 + 5s total in 5,6,7.
-    # Total was 7s. We need to be ~4.5s earlier.
-    # New total is 1 + 1 + 0.5 = 2.5s.
-    wait(0) 
-
-    # NEW: Save emulator state (Gzipped) at the exact start
-    import gzip
-    state_data = env.unwrapped.em.get_state()
-    state_path = os.path.join(custom_path, 'SuperMarioKart-Snes-v0/start_race.state')
-    with gzip.open(state_path, 'wb') as f:
-        f.write(state_data)
-    print(f"Emulator state (gzipped) saved as {state_path}")
-
-    
-    out.release()
-    env.close()
-    print(f"Video saved as {output_path}")
+    video.release()
+    inner_env.close()
+    print(f"Navigation complete. Video saved to {video_path}")
 
 if __name__ == "__main__":
-    record_video()
+    record_navigation()
