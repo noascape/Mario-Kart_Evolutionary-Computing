@@ -1,0 +1,15 @@
+{
+    "generation": 435,
+    "best_fitness": 1111.0,
+    "avg_fitness": 437.615,
+    "num_species": 17,
+    "stagnation": 49,
+    "best_complexity": [
+        17,
+        22
+    ],
+    "avg_nodes": 28.76,
+    "avg_conns": 67.125,
+    "approx_max_checkpoints": 11,
+    "best_genome_id": 67643
+}

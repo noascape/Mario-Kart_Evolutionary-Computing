@@ -82,10 +82,10 @@ class EvolutionReporter(neat.reporting.BaseReporter):
     NEAT Reporter that captures a 'replay' of the best genome, 
     saves the genome itself, and logs generation stats to a file.
     """
-    def __init__(self, replay_frequency=5, save_frequency=1):
+    def __init__(self, replay_frequency=5, save_frequency=1, start_gen=0):
         self.replay_frequency = replay_frequency
         self.save_frequency = save_frequency
-        self.generation = 0
+        self.generation = start_gen
         self.global_best_fitness = -float('inf')
         self.stagnation_count = 0
 
@@ -196,10 +196,10 @@ class SummaryReporter(neat.reporting.BaseReporter):
     """
     Logs a concise summary of the evolution to a CSV file every N generations.
     """
-    def __init__(self, filename='training_summary.csv', frequency=10):
+    def __init__(self, filename='training_summary.csv', frequency=10, start_gen=0):
         self.filename = os.path.join(project_root, filename)
         self.frequency = frequency
-        self.generation = 0
+        self.generation = start_gen
         # Initialize the file with a header if it doesn't exist
         if not os.path.exists(self.filename):
             with open(self.filename, 'w') as f:
@@ -227,26 +227,39 @@ class Trainer:
                              neat.DefaultSpeciesSet, neat.DefaultStagnation,
                              self.config_path)
         
-        pop = neat.Population(config)
+        # Auto-detect latest checkpoint
+        checkpoint_dir = os.path.abspath('checkpoints')
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        checkpoints = [f for f in os.listdir(checkpoint_dir) if f.startswith('neat-checkpoint-')]
+        
+        if checkpoints:
+            # Sort by generation number
+            checkpoints.sort(key=lambda x: int(x.split('-')[-1]))
+            latest_checkpoint = os.path.join(checkpoint_dir, checkpoints[-1])
+            print(f"--- Resuming from Checkpoint: {checkpoints[-1]} ---")
+            pop = neat.Checkpointer.restore_checkpoint(latest_checkpoint)
+        else:
+            print("--- Starting New Population ---")
+            pop = neat.Population(config)
+
+        current_gen = pop.generation
         pop.add_reporter(neat.StdOutReporter(True))
         stats = neat.StatisticsReporter()
         pop.add_reporter(stats)
         
         # Add our improved EvolutionReporter
         # frequency=5 means replay every 5 generations
-        pop.add_reporter(EvolutionReporter(replay_frequency=5, save_frequency=1))
+        pop.add_reporter(EvolutionReporter(replay_frequency=5, save_frequency=1, start_gen=current_gen))
         
         # Add SummaryReporter
         # frequency=5 means log to CSV every 5 generations
-        pop.add_reporter(SummaryReporter(frequency=5))
+        pop.add_reporter(SummaryReporter(frequency=5, start_gen=current_gen))
         
         # Add TimeReporter if duration is specified
         if self.args.duration > 0:
             pop.add_reporter(TimeReporter(self.args.duration * 60))
         
         # Checkpointing
-        checkpoint_dir = os.path.abspath('checkpoints')
-        os.makedirs(checkpoint_dir, exist_ok=True)
         pop.add_reporter(neat.Checkpointer(5, filename_prefix=f'{checkpoint_dir}/neat-checkpoint-'))
         
         # Parallel evaluation

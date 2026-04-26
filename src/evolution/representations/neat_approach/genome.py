@@ -31,7 +31,7 @@ class NEATGenome(BaseGenome):
         # Normalize inputs
         inputs[0] /= 10000.0 
         inputs[1] /= 10000.0
-        inputs[2] /= 65535.0
+        inputs[2] /= 255.0
         inputs[3] /= 255.0
         inputs[4] /= 30.0
         inputs[5] /= 200.0
